@@ -1,5 +1,4 @@
 let parsedData = [];
-let weights = [1, 1, 1]; // Bobot Nilai: PG, Esai 1, Esai 2
 
 // Event Listener Drag & Drop
 const dropzone = document.getElementById('dropzone');
@@ -46,7 +45,7 @@ function processCSV(file) {
     reader.readAsText(file);
 }
 
-// Fungsi Parse Baris CSV Presisi (Mencegah nama/kolom tertukar karena tanda koma)
+// Fungsi Parse Baris CSV (Handling Tanda Kutip & Koma Dalam Jawaban)
 function parseCSVLine(text) {
     const result = [];
     let cell = '';
@@ -72,44 +71,81 @@ function parseCSVLine(text) {
     return result;
 }
 
-// Logika Evaluasi Jawaban Esai 1 (Kunci Jawaban 1A, 1B, 1C) -> Max 15 Poin
+// Evaluasi Akurat Jawaban Esai 1 (Maksimal 15 Poin)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
-    
-    const hasRedundansi = str.includes('redundansi') || str.includes('pengulangan');
-    const hasAnomali = str.includes('anomali') || (str.includes('insert') && str.includes('delete') && str.includes('update'));
-    const hasNormalisasi = str.includes('tabel_pelanggan') || str.includes('3nf') || str.includes('normalisasi');
-    const hasDDL = str.includes('create table') || str.includes('primary key');
+    let score = 0;
 
-    if ((hasRedundansi && hasAnomali) || (hasNormalisasi && hasDDL)) {
-        return 15;
-    } else if (hasRedundansi || hasAnomali || hasNormalisasi || hasDDL) {
-        return 8;
+    // A. Redundansi & Anomali (Maksimal 5 Poin)
+    const hasRedundansi = str.includes('redundansi') || str.includes('pengulangan');
+    const hasInsert = str.includes('insert') || str.includes('tambah');
+    const hasDelete = str.includes('delete') || str.includes('hapus');
+    const hasUpdate = str.includes('update') || str.includes('ubah');
+
+    if (hasRedundansi && (hasInsert || hasDelete || hasUpdate)) {
+        score += 5;
+    } else if (hasRedundansi || hasInsert || hasDelete || hasUpdate) {
+        score += 2.5;
     }
-    return 0;
+
+    // B. Normalisasi 3NF (Maksimal 5 Poin)
+    const hasPelanggan = str.includes('tabel_pelanggan') || str.includes('pelanggan');
+    const hasBarang = str.includes('tabel_barang') || str.includes('barang');
+    const hasTransaksi = str.includes('tabel_transaksi') || str.includes('transaksi');
+    const hasDetail = str.includes('tabel_detail') || str.includes('detail');
+
+    if (hasPelanggan && hasBarang && (hasTransaksi || hasDetail)) {
+        score += 5;
+    } else if (hasPelanggan || hasBarang || hasTransaksi) {
+        score += 2.5;
+    }
+
+    // C. Contoh SQL DDL (Maksimal 5 Poin)
+    const hasCreate = str.includes('create table');
+    const hasPK = str.includes('primary key');
+    const hasAuto = str.includes('auto_increment');
+
+    if (hasCreate && (hasPK || hasAuto)) {
+        score += 5;
+    } else if (hasCreate) {
+        score += 2.5;
+    }
+
+    return Math.min(15, score);
 }
 
-// Logika Evaluasi Jawaban Esai 2 (Kunci Jawaban 2A, 2B) -> Max 15 Poin
+// Evaluasi Akurat Jawaban Esai 2 (Maksimal 15 Poin)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
+    let score = 0;
 
-    const hasClientServer = str.includes('client-side') || str.includes('server-side');
-    const hasBrowser = str.includes('browser') || str.includes('peramban') || str.includes('html');
-    const hasServer = str.includes('server') || str.includes('php') || str.includes('node');
-    const hasKeamanan = str.includes('transaksi') || str.includes('autentikasi') || str.includes('sensitif') || str.includes('validasi');
+    // A. Perbedaan & Cara Kerja Client-Side vs Server-Side (Maksimal 7.5 Poin)
+    const hasClient = str.includes('client-side') || str.includes('client');
+    const hasBrowser = str.includes('browser') || str.includes('peramban') || str.includes('html') || str.includes('css') || str.includes('js');
+    const hasServer = str.includes('server-side') || str.includes('server') || str.includes('php') || str.includes('node');
 
-    if ((hasClientServer && hasKeamanan) || (hasBrowser && hasServer && hasKeamanan)) {
-        return 15;
-    } else if (hasClientServer || hasBrowser || hasServer || hasKeamanan) {
-        return 8;
+    if (hasClient && hasServer && hasBrowser) {
+        score += 7.5;
+    } else if (hasClient || hasServer) {
+        score += 4;
     }
-    return 0;
+
+    // B. Skenario Keamanan (Maksimal 7.5 Poin)
+    const hasSkenario = str.includes('transaksi') || str.includes('pembayaran') || str.includes('autentikasi') || str.includes('kata sandi') || str.includes('password');
+    const hasAlasan = str.includes('developer tools') || str.includes('inspeksi') || str.includes('manipulasi') || str.includes('validasi') || str.includes('sensitif');
+
+    if (hasSkenario && hasAlasan) {
+        score += 7.5;
+    } else if (hasSkenario || hasAlasan) {
+        score += 4;
+    }
+
+    return Math.min(15, score);
 }
 
 function parseCSVText(csvText) {
-    // Regex pembagi baris presisi
     const lines = csvText.split(/\r?\n/);
     if (lines.length < 2) {
         alert('File CSV minimal harus berisi header dan 1 baris data!');
@@ -122,11 +158,10 @@ function parseCSVText(csvText) {
 
         const cols = parseCSVLine(lines[i]);
 
-        // Urutan Kolom Sesuai Spesifikasi:
-        // 0: Timestamp, 1: No Absen, 2: Nama Lengkap, 3: Nilai PG, 4: Esai 1, 5: Esai 2
         const timestamp = cols[0] || '-';
         const noAbsen = cols[1] || `${i}`;
-        const namaLengkap = cols[2] || `Siswa ${i}`;
+        // Nama otomatis dikonversi ke HURUF KAPITAL
+        const namaLengkap = (cols[2] || `SISWA ${i}`).toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
         const jawabanEsai2 = cols[5] || '';
@@ -145,42 +180,20 @@ function parseCSVText(csvText) {
         });
     }
 
-    renderWeightInputs();
-    calculateAndRender(); // Langsung Otomatis Hitung Hasil Saat CSV Diunggah
-}
-
-function renderWeightInputs() {
-    const grid = document.getElementById('weightsGrid');
-    if (!grid) return;
-    
-    grid.innerHTML = '';
-    const labels = ['Bobot PG', 'Bobot Esai 1', 'Bobot Esai 2'];
-    for (let i = 0; i < 3; i++) {
-        const div = document.createElement('div');
-        div.className = 'weight-item';
-        div.innerHTML = `
-            <label>${labels[i]}</label>
-            <input type="number" step="0.1" value="${weights[i]}" onchange="updateWeight(${i}, this.value)">
-        `;
-        grid.appendChild(div);
-    }
+    // Sembunyikan/Hapus Kotak Pengaturan Bobot Jika Ada di DOM
     const configBox = document.getElementById('configBox');
-    if (configBox) configBox.style.display = 'block';
-}
+    if (configBox) configBox.style.display = 'none';
 
-function updateWeight(index, val) {
-    weights[index] = parseFloat(val) || 0;
+    // Langsung Hitung & Render Otomatis
     calculateAndRender();
 }
 
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
+    // Perhitungan Langsung Tanpa Bobot Tambahan
     let computed = parsedData.map(item => {
-        const totalPG = item.nilaiPG * weights[0];
-        const totalE1 = item.scoreEsai1 * weights[1];
-        const totalE2 = item.scoreEsai2 * weights[2];
-        const total = totalPG + totalE1 + totalE2;
+        const total = item.nilaiPG + item.scoreEsai1 + item.scoreEsai2;
 
         return {
             ...item,
@@ -188,7 +201,7 @@ function calculateAndRender() {
         };
     });
 
-    // Urutkan nilai tertinggi ke terendah
+    // Urutkan Nilai Tertinggi ke Terendah
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
     // Update Statistik
@@ -211,7 +224,7 @@ function calculateAndRender() {
         `;
     }
 
-    // Render 3D Podium (Top 3)
+    // Render 3D Podium Top 3
     const podiumContainer = document.getElementById('podiumContainer');
     if (podiumContainer && computed.length >= 1) {
         podiumContainer.style.display = 'flex';
@@ -270,7 +283,7 @@ function calculateAndRender() {
     });
 }
 
-// PERBAIKAN: Fungsi Ekspor JPG Agar Tidak Blank
+// Export Gambar JPG Tanpa Blank
 function exportToJPG() {
     if (parsedData.length === 0) {
         alert('Silakan muat data CSV terlebih dahulu!');
@@ -280,7 +293,6 @@ function exportToJPG() {
     showToast('Sedang merender gambar JPG...');
     const exportArea = document.getElementById('export-container');
 
-    // Menggunakan pemetaan canvas eksplisit agar tidak menghasilkan layar blank
     html2canvas(exportArea, {
         scale: 2,
         useCORS: true,
@@ -308,13 +320,13 @@ function exportToJPG() {
     });
 }
 
-// Load Demo Sample
+// Load Sampel Data Demo
 function loadSampleData() {
     const sampleCSV = `Timestamp,No Absen,Nama Lengkap,Nilai PG,Jawaban Esai 1,Jawaban Esai 2
-2026-09-17 08:00,01,Ahmad Fauzi,70,"Redundansi pengulangan data nama pelanggan. Anomali insert, delete, update. Normalisasi 3NF Tabel_Pelanggan, Tabel_Barang. SQL CREATE TABLE Pelanggan (ID_Pelanggan INT AUTO_INCREMENT PRIMARY KEY);","Client-Side dieksekusi di browser HTML/CSS/JS. Server-Side di server PHP. Skenario transaksi keamanan validasi dan autentikasi."
+2026-09-17 08:00,01,Ahmad Fauzi,70,"Redundansi pengulangan data nama pelanggan. Anomali insert, delete, update. Normalisasi 3NF Tabel_Pelanggan, Tabel_Barang, Tabel_Transaksi. SQL CREATE TABLE Pelanggan (ID_Pelanggan INT AUTO_INCREMENT PRIMARY KEY);","Client-Side dieksekusi di browser HTML/CSS/JS. Server-Side di server PHP. Skenario transaksi pembayaran keamanan dan autentikasi kata sandi di developer tools."
 2026-09-17 08:02,02,Budi Santoso,65,"Pengulangan data redundansi. SQL CREATE TABLE Pelanggan","Client-Side di browser. Server-Side di server."
-2026-09-17 08:05,03,Citra Dewi,70,"Hanya jawaban singkat","Tidak ada"
-2026-09-17 08:10,04,Dian Pratama,70,"Terjadi redundansi data dan anomali insert delete update. Normalisasi 3NF Tabel_Pelanggan, Tabel_Barang. CREATE TABLE Pelanggan (ID_Pelanggan INT PRIMARY KEY);","Client-Side browser tampilan. Server-Side PHP database. Keamanan transaksi pembayaran autentikasi kata sandi developer tools."`;
+2026-09-17 08:05,03,Citra Dewi,70,"Jawaban tidak lengkap","Hanya client side saja"
+2026-09-17 08:10,04,Dian Pratama,70,"Redundansi pengulangan data dan anomali insert delete update. Tabel_Pelanggan, Tabel_Barang, Tabel_Transaksi. CREATE TABLE Pelanggan (ID_Pelanggan INT AUTO_INCREMENT PRIMARY KEY);","Client-Side browser tampilan. Server-Side PHP database. Keamanan transaksi pembayaran online dan autentikasi kata sandi agar tidak dapat dimanipulasi dari developer tools."`;
 
     parseCSVText(sampleCSV);
     showToast('Data sampel hasil ujian berhasil dimuat!');
@@ -323,7 +335,7 @@ function loadSampleData() {
 // Download Template CSV
 function downloadSampleCSV() {
     const sampleCSV = `Timestamp,No Absen,Nama Lengkap,Nilai PG,Jawaban Esai 1,Jawaban Esai 2
-2026-09-17 08:00,01,Nama Siswa Lengkap,70,"Jawaban Esai 1...","Jawaban Esai 2..."`;
+2026-09-17 08:00,01,NAMA SISWA LENGKAP,70,"Jawaban Esai 1...","Jawaban Esai 2..."`;
 
     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -334,5 +346,5 @@ function downloadSampleCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Template CSV diunduh!');
+    showToast('Template CSV berhasil diunduh!');
 }
