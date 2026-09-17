@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Colorful Online Leaderboard</title>
+    <!-- Font Awesome & Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for JPG Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0f0c20;
+            --card-bg: rgba(255, 255, 255, 0.07);
+            --primary-glow: #8b5cf6;
+            --gold: #f59e0b;
+            --silver: #94a3b8;
+            --bronze: #d97706;
+            --accent-pink: #ec4899;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --text-color: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 10%, #1e1b4b 0%, #0f0c20 70%);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 30px 20px;
+            overflow-x: hidden;
+        }
+
+        /* 3D Background Decorative Spheres */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 400px; height: 400px; background: #7c3aed; }
+        .blob-2 { bottom: -10%; right: -10%; width: 450px; height: 450px; background: #ec4899; }
+        .blob-3 { top: 40%; right: 20%; width: 300px; height: 300px; background: #06b6d4; }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Header Title 3D Effect */
+        .app-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .app-title {
+            font-family: 'Fredoka', cursive;
+            font-size: 2.8rem;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #a78bfa 0%, #f472b6 50%, #38bdf8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 10px 25px rgba(167, 139, 250, 0.4);
+            margin-bottom: 8px;
+        }
+
+        .app-subtitle {
+            font-size: 1.05rem;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        /* Control Panel / Upload Box */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 28px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .upload-section { grid-template-columns: 1fr; }
+        }
+
+        .dropzone {
+            border: 2px dashed rgba(167, 139, 250, 0.5);
+            border-radius: 18px;
+            padding: 25px;
+            text-align: center;
+            background: rgba(15, 12, 32, 0.4);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .dropzone:hover {
+            border-color: #f472b6;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(244, 114, 182, 0.2);
+        }
+
+        .dropzone i {
+            font-size: 2.5rem;
+            color: #a78bfa;
+            margin-bottom: 10px;
+        }
+
+        .dropzone input[type="file"] {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* 3D Action Buttons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-3d {
+            border: none;
+            padding: 14px 24px;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 0.98rem;
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.15s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            outline: none;
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            box-shadow: 0 6px 0 #4c1d95, 0 12px 20px rgba(139, 92, 246, 0.4);
+        }
+        .btn-purple:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #4c1d95, 0 15px 25px rgba(139, 92, 246, 0.5); }
+        .btn-purple:active { transform: translateY(4px); box-shadow: 0 2px 0 #4c1d95, 0 5px 10px rgba(139, 92, 246, 0.4); }
+
+        .btn-pink {
+            background: linear-gradient(135deg, #ec4899, #be185d);
+            box-shadow: 0 6px 0 #831843, 0 12px 20px rgba(236, 72, 153, 0.4);
+        }
+        .btn-pink:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #831843, 0 15px 25px rgba(236, 72, 153, 0.5); }
+        .btn-pink:active { transform: translateY(4px); box-shadow: 0 2px 0 #831843, 0 5px 10px rgba(236, 72, 153, 0.4); }
+
+        .btn-cyan {
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            box-shadow: 0 6px 0 #164e63, 0 12px 20px rgba(6, 182, 212, 0.4);
+        }
+        .btn-cyan:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #164e63, 0 15px 25px rgba(6, 182, 212, 0.5); }
+        .btn-cyan:active { transform: translateY(4px); box-shadow: 0 2px 0 #164e63, 0 5px 10px rgba(6, 182, 212, 0.4); }
+
+        /* Formula / Weight Configuration Panel */
+        .config-box {
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.15);
+        }
+
+        .config-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #a78bfa;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .weights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .weight-item {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .weight-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .weight-item input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        /* Export Printable Area */
+        #export-container {
+            padding: 25px;
+            border-radius: 28px;
+            background: linear-gradient(180deg, rgba(30, 27, 75, 0.9) 0%, rgba(15, 12, 32, 0.95) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            margin-top: 20px;
+        }
+
+        .export-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .export-header h2 {
+            font-family: 'Fredoka', cursive;
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #f472b6, #fbbf24, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stats-pills {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 3D Podium for Top 3 */
+        .podium-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 15px;
+            margin: 40px 0 50px 0;
+            padding: 0 10px;
+        }
+
+        .podium-card {
+            flex: 1;
+            max-width: 220px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 20px 20px 16px 16px;
+            padding: 20px 12px;
+            text-align: center;
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .podium-card:hover {
+            transform: translateY(-8px);
+        }
+
+        .podium-1 {
+            order: 2;
+            height: 250px;
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+        }
+
+        .podium-2 {
+            order: 1;
+            height: 210px;
+            background: linear-gradient(180deg, rgba(148, 163, 184, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 2px solid var(--silver);
+        }
+
+        .podium-3 {
+            order: 3;
+            height: 180px;
+            background: linear-gradient(180deg, rgba(217, 119, 6, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 2px solid var(--bronze);
+        }
+
+        .crown-icon {
+            font-size: 2.2rem;
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        }
+
+        .podium-avatar {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            margin: 10px auto 10px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+        }
+
+        .podium-1 .podium-avatar { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .podium-2 .podium-avatar { background: linear-gradient(135deg, #94a3b8, #64748b); }
+        .podium-3 .podium-avatar { background: linear-gradient(135deg, #d97706, #78350f); }
+
+        .podium-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .podium-score {
+            font-family: 'Fredoka', cursive;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #4ade80;
+        }
+
+        /* Leaderboard Table List */
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .rank-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 18px;
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: 60px 2fr repeat(6, 1fr) 1.2fr;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .rank-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.01) translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            border-color: rgba(167, 139, 250, 0.4);
+        }
+
+        @media (max-width: 900px) {
+            .rank-card {
+                grid-template-columns: 50px 1.5fr repeat(3, 1fr) 1fr;
+                font-size: 0.85rem;
+            }
+            .hide-mobile { display: none; }
+        }
+
+        .rank-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .rank-1 .rank-badge { background: linear-gradient(135deg, #f59e0b, #b45309); color: #fff; }
+        .rank-2 .rank-badge { background: linear-gradient(135deg, #94a3b8, #475569); color: #fff; }
+        .rank-3 .rank-badge { background: linear-gradient(135deg, #d97706, #78350f); color: #fff; }
+
+        .participant-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar-mini {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .p-name {
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .metric-val {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        .total-score-badge {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-family: 'Fredoka', cursive;
+            font-size: 1.1rem;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 60px 2fr repeat(6, 1fr) 1.2fr;
+            padding: 10px 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #a78bfa;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            color: #475569;
+        }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #8b5cf6;
+            color: #fff;
+            padding: 14px 22px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title"><i class="fa-solid fa-trophy"></i> 3D LEADERBOARD ONLINE</h1>
+            <p class="app-subtitle">Upload CSV (6 Kolom Data) • Hitung Otomatis • Download Hasil JPG</p>
+        </header>
+
+        <!-- Glass Control Panel -->
+        <div class="glass-panel">
+            <div class="upload-section">
+                <!-- Dropzone -->
+                <div class="dropzone" id="dropzone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 5px;">Unggah File CSV Data</h3>
+                    <p style="font-size: 0.8rem; color: #94a3b8;">Format: 1 Kolom Nama + 5 Kolom Nilai / Kriteria</p>
+                    <input type="file" id="csvFileInput" accept=".csv">
+                </div>
+
+                <!-- Buttons -->
+                <div class="btn-group">
+                    <button class="btn-3d btn-purple" onclick="loadSampleData()">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Gunakan Data Demo Sample
+                    </button>
+                    <button class="btn-3d btn-pink" onclick="downloadSampleCSV()">
+                        <i class="fa-solid fa-file-csv"></i> Unduh Template CSV (6 Kolom)
+                    </button>
+                    <button class="btn-3d btn-cyan" onclick="exportToJPG()">
+                        <i class="fa-solid fa-file-image"></i> Download Leaderboard (JPG)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Column Weights / Formulas -->
+            <div class="config-box" id="configBox" style="display: none;">
+                <div class="config-title">
+                    <i class="fa-solid fa-sliders"></i> Bobot Kalkulasi 5 Kolom Penilaian (Total Bobot Multiplier)
+                </div>
+                <div class="weights-grid" id="weightsGrid">
+                    <!-- Dynamic Weight Inputs -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Exportable Leaderboard Area -->
+        <div id="export-container">
+            <div class="export-header">
+                <h2 id="boardTitle">HASIL KINERJA & RANKING PESERTA</h2>
+                <div class="stats-pills">
+                    <div class="pill"><i class="fa-solid fa-users" style="color:#38bdf8;"></i> Total: <span id="statTotal">0</span> Peserta</div>
+                    <div class="pill"><i class="fa-solid fa-star" style="color:#f59e0b;"></i> Skor Tertinggi: <span id="statMax">0</span></div>
+                    <div class="pill"><i class="fa-solid fa-chart-line" style="color:#34d399;"></i> Rata-Rata: <span id="statAvg">0</span></div>
+                </div>
+            </div>
+
+            <!-- Top 3 3D Podium -->
+            <div class="podium-container" id="podiumContainer" style="display: none;">
+                <!-- Podium 2 (Silver) -->
+                <div class="podium-card podium-2" id="podium2">
+                    <div class="crown-icon">🥈</div>
+                    <div class="podium-avatar" id="avatar2">?</div>
+                    <div class="podium-name" id="name2">-</div>
+                    <div class="podium-score" id="score2">0</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">JUARA 2</div>
+                </div>
+
+                <!-- Podium 1 (Gold) -->
+                <div class="podium-card podium-1" id="podium1">
+                    <div class="crown-icon">👑</div>
+                    <div class="podium-avatar" id="avatar1">?</div>
+                    <div class="podium-name" id="name1">-</div>
+                    <div class="podium-score" id="score1">0</div>
+                    <div style="font-size:0.8rem; color:#fbbf24; font-weight:700; margin-top:4px;">JUARA 1</div>
+                </div>
+
+                <!-- Podium 3 (Bronze) -->
+                <div class="podium-card podium-3" id="podium3">
+                    <div class="crown-icon">🥉</div>
+                    <div class="podium-avatar" id="avatar3">?</div>
+                    <div class="podium-name" id="name3">-</div>
+                    <div class="podium-score" id="score3">0</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">JUARA 3</div>
+                </div>
+            </div>
+
+            <!-- Table Column Headers -->
+            <div class="table-header hide-mobile" id="tableHeader" style="display: none;">
+                <div>Rank</div>
+                <div>Nama Peserta</div>
+                <div id="th1" style="text-align:center;">K1</div>
+                <div id="th2" style="text-align:center;">K2</div>
+                <div id="th3" style="text-align:center;">K3</div>
+                <div id="th4" style="text-align:center;">K4</div>
+                <div id="th5" style="text-align:center;">K5</div>
+                <div style="text-align:center;">Rata2</div>
+                <div style="text-align:center;">Total Skor</div>
+            </div>
+
+            <!-- Leaderboard List -->
+            <div class="leaderboard-list" id="leaderboardList">
+                <div class="empty-state">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <h3>Belum Ada Data Diumpankan</h3>
+                    <p style="font-size: 0.85rem; margin-top: 5px;">Unggah file CSV dengan 6 kolom atau klik "Gunakan Data Demo Sample".</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <i class="fa-solid fa-circle-check" style="color: #4ade80; font-size: 1.3rem;"></i>
+        <span id="toastMsg">Notifikasi</span>
+    </div>
+
+    <script>
+        let parsedData = [];
+        let headers = ['Nama', 'Nilai 1', 'Nilai 2', 'Nilai 3', 'Nilai 4', 'Nilai 5'];
+        let weights = [1, 1, 1, 1, 1];
+
+        // Drag and drop handlers
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('csvFileInput');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processCSV(e.target.files[0]);
+            }
+        });
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = '#ec4899';
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.style.borderColor = 'rgba(167, 139, 250, 0.5)';
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = 'rgba(167, 139, 250, 0.5)';
+            if (e.dataTransfer.files.length > 0) {
+                processCSV(e.dataTransfer.files[0]);
+            }
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Process CSV File
+        function processCSV(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseCSVText(text);
+                showToast('Data CSV berhasil diunggah dan dihitung!');
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVText(csvText) {
+            const lines = csvText.trim().split(/\r?\n/);
+            if (lines.length < 2) {
+                alert('File CSV harus memiliki minimal header dan 1 baris data!');
+                return;
+            }
+
+            // Parse headers
+            const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            headers = rawHeaders.slice(0, 6);
+
+            // Ensure 6 headers
+            while(headers.length < 6) {
+                headers.push(`Kolom ${headers.length}`);
+            }
+
+            parsedData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                const name = cols[0] || `Peserta ${i}`;
+                const m1 = parseFloat(cols[1]) || 0;
+                const m2 = parseFloat(cols[2]) || 0;
+                const m3 = parseFloat(cols[3]) || 0;
+                const m4 = parseFloat(cols[4]) || 0;
+                const m5 = parseFloat(cols[5]) || 0;
+
+                parsedData.push({ name, m1, m2, m3, m4, m5 });
+            }
+
+            renderWeightInputs();
+            calculateAndRender();
+        }
+
+        function renderWeightInputs() {
+            const grid = document.getElementById('weightsGrid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const colName = headers[i] || `Kolom ${i}`;
+                const div = document.createElement('div');
+                div.className = 'weight-item';
+                div.innerHTML = `
+                    <label title="${colName}">${colName}</label>
+                    <input type="number" step="0.1" value="${weights[i-1]}" onchange="updateWeight(${i-1}, this.value)">
+                `;
+                grid.appendChild(div);
+            }
+            document.getElementById('configBox').style.display = 'block';
+        }
+
+        function updateWeight(index, val) {
+            weights[index] = parseFloat(val) || 0;
+            calculateAndRender();
+        }
+
+        function calculateAndRender() {
+            if (parsedData.length === 0) return;
+
+            // Compute total score with weights
+            let computed = parsedData.map(item => {
+                const s1 = item.m1 * weights[0];
+                const s2 = item.m2 * weights[1];
+                const s3 = item.m3 * weights[2];
+                const s4 = item.m4 * weights[3];
+                const s5 = item.m5 * weights[4];
+                const total = s1 + s2 + s3 + s4 + s5;
+                const avg = (item.m1 + item.m2 + item.m3 + item.m4 + item.m5) / 5;
+
+                return {
+                    ...item,
+                    totalScore: Math.round(total * 100) / 100,
+                    avgScore: Math.round(avg * 10) / 10
+                };
+            });
+
+            // Sort descending by totalScore
+            computed.sort((a, b) => b.totalScore - a.totalScore);
+
+            // Update stats
+            document.getElementById('statTotal').innerText = computed.length;
+            document.getElementById('statMax').innerText = computed[0].totalScore;
+            const avgAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0) / computed.length;
+            document.getElementById('statAvg').innerText = (Math.round(avgAll * 10) / 10);
+
+            // Render Table Header
+            document.getElementById('tableHeader').style.display = 'grid';
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`th${i}`).innerText = headers[i].length > 8 ? headers[i].substring(0,6)+'..' : headers[i];
+            }
+
+            // Render Top 3 Podium
+            if (computed.length >= 1) {
+                document.getElementById('podiumContainer').style.display = 'flex';
+                
+                // Rank 1
+                document.getElementById('name1').innerText = computed[0].name;
+                document.getElementById('score1').innerText = computed[0].totalScore;
+                document.getElementById('avatar1').innerText = computed[0].name.charAt(0).toUpperCase();
+
+                // Rank 2
+                if (computed[1]) {
+                    document.getElementById('name2').innerText = computed[1].name;
+                    document.getElementById('score2').innerText = computed[1].totalScore;
+                    document.getElementById('avatar2').innerText = computed[1].name.charAt(0).toUpperCase();
+                    document.getElementById('podium2').style.visibility = 'visible';
+                } else {
+                    document.getElementById('podium2').style.visibility = 'hidden';
+                }
+
+                // Rank 3
+                if (computed[2]) {
+                    document.getElementById('name3').innerText = computed[2].name;
+                    document.getElementById('score3').innerText = computed[2].totalScore;
+                    document.getElementById('avatar3').innerText = computed[2].name.charAt(0).toUpperCase();
+                    document.getElementById('podium3').style.visibility = 'visible';
+                } else {
+                    document.getElementById('podium3').style.visibility = 'hidden';
+                }
+            }
+
+            // Render List
+            const listContainer = document.getElementById('leaderboardList');
+            listContainer.innerHTML = '';
+
+            computed.forEach((item, index) => {
+                const rank = index + 1;
+                const card = document.createElement('div');
+                card.className = `rank-card rank-${rank <= 3 ? rank : 'other'}`;
+
+                card.innerHTML = `
+                    <div class="rank-badge">${rank}</div>
+                    <div class="participant-info">
+                        <div class="avatar-mini">${item.name.charAt(0).toUpperCase()}</div>
+                        <div class="p-name">${item.name}</div>
+                    </div>
+                    <div class="metric-val hide-mobile">${item.m1}</div>
+                    <div class="metric-val hide-mobile">${item.m2}</div>
+                    <div class="metric-val hide-mobile">${item.m3}</div>
+                    <div class="metric-val hide-mobile">${item.m4}</div>
+                    <div class="metric-val hide-mobile">${item.m5}</div>
+                    <div class="metric-val" style="color: #a78bfa;">${item.avgScore}</div>
+                    <div class="total-score-badge">${item.totalScore}</div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Demo Sample Data
+        function loadSampleData() {
+            const sampleCSV = `Nama Peserta,Tugas 1,Tugas 2,Ujian Tengah,Ujian Akhir,Kehadiran
+Ahmad Fauzi,85,90,88,92,100
+Budi Santoso,92,88,95,90,95
+Citra Dewi,78,85,80,82,90
+Dian Pratama,95,94,92,98,100
+Eka Rahmawati,88,82,85,89,95
+Fajar Nugraha,90,92,91,94,98
+Gita Gutawa,82,80,85,88,90
+Hendra Wijaya,75,78,80,85,85`;
+
+            parseCSVText(sampleCSV);
+            showToast('Data sampel berhasil dimuat!');
+        }
+
+        // Download Sample CSV Template
+        function downloadSampleCSV() {
+            const sampleCSV = `Nama Peserta,Tugas 1,Tugas 2,Ujian Tengah,Ujian Akhir,Kehadiran
+Ahmad Fauzi,85,90,88,92,100
+Budi Santoso,92,88,95,90,95
+Citra Dewi,78,85,80,82,90
+Dian Pratama,95,94,92,98,100`;
+
+            const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "template_leaderboard_6kolom.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Template CSV diunduh!');
+        }
+
+        // Export as JPG Image using html2canvas
+        function exportToJPG() {
+            if (parsedData.length === 0) {
+                alert('Silakan muat data CSV terlebih dahulu sebelum mendownload JPG!');
+                return;
+            }
+
+            showToast('Sedang memproses gambar JPG...');
+            const exportArea = document.getElementById('export-container');
+
+            html2canvas(exportArea, {
+                scale: 2, // High DPI resolution
+                useCORS: true,
+                backgroundColor: '#0f0c20',
+                logging: false
+            }).then(canvas => {
+                const image = canvas.toDataURL('image/jpeg', 0.95);
+                const link = document.createElement('a');
+                link.download = `Leaderboard_Hasil_${new Date().toISOString().slice(0,10)}.jpg`;
+                link.href = image;
+                link.click();
+                showToast('Gambar Leaderboard JPG berhasil didownload!');
+            }).catch(err => {
+                console.error(err);
+                alert('Gagal mengekspor gambar. Pastikan koneksi internet stabil untuk memuat pustaka pengubah gambar.');
+            });
+        }
+    </script>
+</body>
+</html>
