@@ -5,7 +5,7 @@ window.addEventListener('DOMContentLoaded', () => {
     checkUrlForSharedData();
 });
 
-// Event Listener Drag & Drop
+// Event Listener Drag & Drop File CSV
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('csvFileInput');
 
@@ -45,12 +45,12 @@ function processCSV(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         parseCSVText(e.target.result);
-        showToast('Data CSV berhasil diunggah & dinilai otomatis!');
+        showToast('Data CSV berhasil diunggah & dinilai!');
     };
     reader.readAsText(file);
 }
 
-// Fungsi Parse Baris CSV
+// Parsing Baris CSV dengan Handler Tanda Kutip
 function parseCSVLine(text) {
     const result = [];
     let cell = '';
@@ -76,7 +76,7 @@ function parseCSVLine(text) {
     return result;
 }
 
-// Evaluasi Jawaban Esai 1 (Maksimal 15 Poin)
+// Evaluasi Kriteria Jawaban Esai 1 (Maksimal 15 Poin)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -117,7 +117,7 @@ function evaluateEssay1(text) {
     return Math.min(15, score);
 }
 
-// Evaluasi Jawaban Esai 2 (Maksimal 15 Poin)
+// Evaluasi Kriteria Jawaban Esai 2 (Maksimal 15 Poin)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -145,22 +145,26 @@ function evaluateEssay2(text) {
     return Math.min(15, score);
 }
 
+// Membaca Teks CSV dan Mengabaikan Baris/Kolom Kosong
 function parseCSVText(csvText) {
     const lines = csvText.split(/\r?\n/);
     if (lines.length < 2) {
-        alert('File CSV minimal harus berisi header dan 1 baris data!');
+        alert('File CSV tidak berisi data yang valid!');
         return;
     }
 
     parsedData = [];
     for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
+        if (!lines[i].trim()) continue; // Abaikan baris kosong
 
         const cols = parseCSVLine(lines[i]);
+        
+        // Lewati jika kolom nama peserta kosong
+        if (!cols[2] || cols[2].trim() === '') continue;
 
         const timestamp = cols[0] || '-';
         const noAbsen = cols[1] || `${i}`;
-        const namaLengkap = (cols[2] || `SISWA ${i}`).toUpperCase();
+        const namaLengkap = cols[2].trim().toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
         const jawabanEsai2 = cols[5] || '';
@@ -178,12 +182,18 @@ function parseCSVText(csvText) {
         });
     }
 
+    if (parsedData.length === 0) {
+        alert('Tidak ditemukan data peserta yang valid pada file CSV.');
+        return;
+    }
+
     const configBox = document.getElementById('configBox');
     if (configBox) configBox.style.display = 'none';
 
     calculateAndRender();
 }
 
+// Mengalkulasi Skor & Menampilkan Hasil Kinerja serta Rangking
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
@@ -196,9 +206,10 @@ function calculateAndRender() {
         };
     });
 
+    // Urutkan Peringkat Berdasarkan Total Nilai Tertinggi
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
-    // Update Statistik
+    // Update Statistik Ringkasan
     document.getElementById('statTotal').innerText = computed.length;
     document.getElementById('statMax').innerText = computed[0].totalScore;
     const avgAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0) / computed.length;
@@ -218,24 +229,31 @@ function calculateAndRender() {
         `;
     }
 
-    // Render 3D Podium Top 3
+    // Render Podium Top 3 (Tampilkan hanya sesuai jumlah peserta yang ada)
     const podiumContainer = document.getElementById('podiumContainer');
-    if (podiumContainer && computed.length >= 1) {
+    const pod1 = document.getElementById('podium1');
+    const pod2 = document.getElementById('podium2');
+    const pod3 = document.getElementById('podium3');
+
+    if (podiumContainer) {
         podiumContainer.style.display = 'flex';
-        
+
         // Rank 1
-        document.getElementById('name1').innerText = computed[0].name;
-        document.getElementById('score1').innerText = computed[0].totalScore;
-        document.getElementById('avatar1').innerText = computed[0].noAbsen;
+        if (computed[0]) {
+            document.getElementById('name1').innerText = computed[0].name;
+            document.getElementById('score1').innerText = computed[0].totalScore;
+            document.getElementById('avatar1').innerText = computed[0].noAbsen;
+            if (pod1) pod1.style.display = 'flex';
+        }
 
         // Rank 2
         if (computed[1]) {
             document.getElementById('name2').innerText = computed[1].name;
             document.getElementById('score2').innerText = computed[1].totalScore;
             document.getElementById('avatar2').innerText = computed[1].noAbsen;
-            document.getElementById('podium2').style.visibility = 'visible';
-        } else {
-            document.getElementById('podium2').style.visibility = 'hidden';
+            if (pod2) pod2.style.display = 'flex';
+        } else if (pod2) {
+            pod2.style.display = 'none'; // Sembunyikan jika peserta kurang dari 2
         }
 
         // Rank 3
@@ -243,13 +261,13 @@ function calculateAndRender() {
             document.getElementById('name3').innerText = computed[2].name;
             document.getElementById('score3').innerText = computed[2].totalScore;
             document.getElementById('avatar3').innerText = computed[2].noAbsen;
-            document.getElementById('podium3').style.visibility = 'visible';
-        } else {
-            document.getElementById('podium3').style.visibility = 'hidden';
+            if (pod3) pod3.style.display = 'flex';
+        } else if (pod3) {
+            pod3.style.display = 'none'; // Sembunyikan jika peserta kurang dari 3
         }
     }
 
-    // Render Baris Leaderboard
+    // Render Baris Daftar Ranking
     const listContainer = document.getElementById('leaderboardList');
     listContainer.innerHTML = '';
 
@@ -277,60 +295,10 @@ function calculateAndRender() {
     });
 }
 
-// PERBAIKAN: EKSPOR GAMBAR PNG/JPG (Anti-Blank & Bebas Error)
-function exportToImage(format = 'jpeg') {
-    if (parsedData.length === 0) {
-        alert('Silakan muat data CSV terlebih dahulu!');
-        return;
-    }
-
-    showToast('Sedang memproses gambar...');
-    
-    // Gunakan area yang merangkum seluruh hasil/tabel
-    const exportArea = document.getElementById('export-container') || document.body;
-
-    // html2canvas render steril
-    html2canvas(exportArea, {
-        scale: 2, // Kualitas HD
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#0f0c20', // Sesuai tema kegelapan dashboard
-        logging: false
-    }).then(canvas => {
-        const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-        const ext = format === 'png' ? 'png' : 'jpg';
-        const fileName = `Leaderboard_Ujian_${new Date().toISOString().slice(0, 10)}.${ext}`;
-
-        // Mengonversi langsung ke Data URL untuk kompatibilitas penuh
-        const dataUrl = canvas.toDataURL(mimeType, 0.95);
-
-        // Langsung eksekusi unduh link
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        showToast('Gambar leaderboard berhasil diunduh!');
-    }).catch(err => {
-        console.error("Export Error:", err);
-        alert('Gagal mengekspor gambar. Pastikan pustaka html2canvas telah dimuat.');
-    });
-}
-
-function exportToJPG() {
-    exportToImage('jpeg');
-}
-
-function exportToPNG() {
-    exportToImage('png');
-}
-
-// FITUR SHARING WEB LINK
+// Fitur Bagikan Link Hasil
 function shareResults() {
     if (parsedData.length === 0) {
-        alert('Silakan muat data CSV terlebih dahulu!');
+        alert('Silakan muat file CSV terlebih dahulu!');
         return;
     }
 
@@ -350,7 +318,7 @@ function shareResults() {
     if (navigator.share) {
         navigator.share({
             title: 'Leaderboard Hasil Ujian',
-            text: 'Cek hasil nilai dan peringkat ujian terbaru di sini:',
+            text: 'Cek hasil nilai dan peringkat ujian di sini:',
             url: shareableUrl
         }).catch(() => {
             copyToClipboard(shareableUrl);
@@ -368,6 +336,7 @@ function copyToClipboard(url) {
     });
 }
 
+// Membaca Data Terbagikan Dari URL Hash
 function checkUrlForSharedData() {
     const hash = window.location.hash;
     if (hash && hash.includes('#data=')) {
@@ -393,22 +362,10 @@ function checkUrlForSharedData() {
     }
 }
 
-// Load Sampel Data Demo
-function loadSampleData() {
-    const sampleCSV = `Timestamp,No Absen,Nama Lengkap,Nilai PG,Jawaban Esai 1,Jawaban Esai 2
-2026-09-17 08:00,01,Ahmad Fauzi,70,"Redundansi pengulangan data nama pelanggan. Anomali insert, delete, update. Normalisasi 3NF Tabel_Pelanggan, Tabel_Barang, Tabel_Transaksi. SQL CREATE TABLE Pelanggan (ID_Pelanggan INT AUTO_INCREMENT PRIMARY KEY);","Client-Side dieksekusi di browser HTML/CSS/JS. Server-Side di server PHP. Skenario transaksi pembayaran keamanan dan autentikasi kata sandi di developer tools."
-2026-09-17 08:02,02,Budi Santoso,65,"Pengulangan data redundansi. SQL CREATE TABLE Pelanggan","Client-Side di browser. Server-Side di server."
-2026-09-17 08:05,03,Citra Dewi,70,"Jawaban tidak lengkap","Hanya client side saja"
-2026-09-17 08:10,04,Dian Pratama,70,"Redundansi pengulangan data dan anomali insert delete update. Tabel_Pelanggan, Tabel_Barang, Tabel_Transaksi. CREATE TABLE Pelanggan (ID_Pelanggan INT AUTO_INCREMENT PRIMARY KEY);","Client-Side browser tampilan. Server-Side PHP database. Keamanan transaksi pembayaran online dan autentikasi kata sandi agar tidak dapat dimanipulasi dari developer tools."`;
-
-    parseCSVText(sampleCSV);
-    showToast('Data sampel hasil ujian berhasil dimuat!');
-}
-
-// Download Template CSV
+// Unduh Template File CSV Kosong (Khusus Penggunaan Pengajar/Admin)
 function downloadSampleCSV() {
     const sampleCSV = `Timestamp,No Absen,Nama Lengkap,Nilai PG,Jawaban Esai 1,Jawaban Esai 2
-2026-09-17 08:00,01,NAMA SISWA LENGKAP,70,"Jawaban Esai 1...","Jawaban Esai 2..."`;
+2026-09-17 08:00,01,NAMA SISWA LENGKAP,70,"Isi jawaban esai 1","Isi jawaban esai 2"`;
 
     const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
