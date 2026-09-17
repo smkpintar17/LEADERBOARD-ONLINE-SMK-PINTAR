@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Colorful Online Leaderboard</title>
+    
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- html2canvas Library for JPG Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+    <!-- 3D Decorative Background Blobs -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title"><i class="fa-solid fa-trophy"></i> 3D LEADERBOARD ONLINE</h1>
+            <p class="app-subtitle">Upload CSV (6 Kolom Data) • Hitung Otomatis • Download Hasil JPG</p>
+        </header>
+
+        <!-- Glass Control Panel -->
+        <div class="glass-panel">
+            <div class="upload-section">
+                <!-- Dropzone -->
+                <div class="dropzone" id="dropzone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <h3 style="font-size: 1.1rem; margin-bottom: 5px;">Unggah File CSV Data</h3>
+                    <p style="font-size: 0.8rem; color: #94a3b8;">Format: 1 Kolom Nama + 5 Kolom Nilai / Kriteria</p>
+                    <input type="file" id="csvFileInput" accept=".csv">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="btn-group">
+                    <button class="btn-3d btn-purple" onclick="loadSampleData()">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Gunakan Data Demo Sample
+                    </button>
+                    <button class="btn-3d btn-pink" onclick="downloadSampleCSV()">
+                        <i class="fa-solid fa-file-csv"></i> Unduh Template CSV (6 Kolom)
+                    </button>
+                    <button class="btn-3d btn-cyan" onclick="exportToJPG()">
+                        <i class="fa-solid fa-file-image"></i> Download Leaderboard (JPG)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Column Weights Configuration -->
+            <div class="config-box" id="configBox" style="display: none;">
+                <div class="config-title">
+                    <i class="fa-solid fa-sliders"></i> Bobot Kalkulasi 5 Kolom Penilaian (Multiplier)
+                </div>
+                <div class="weights-grid" id="weightsGrid">
+                    <!-- Dynamic Inputs -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Exportable Area (This area will be rendered as JPG) -->
+        <div id="export-container">
+            <div class="export-header">
+                <h2 id="boardTitle">HASIL KINERJA & RANKING PESERTA</h2>
+                <div class="stats-pills">
+                    <div class="pill"><i class="fa-solid fa-users" style="color:#38bdf8;"></i> Total: <span id="statTotal">0</span> Peserta</div>
+                    <div class="pill"><i class="fa-solid fa-star" style="color:#f59e0b;"></i> Skor Tertinggi: <span id="statMax">0</span></div>
+                    <div class="pill"><i class="fa-solid fa-chart-line" style="color:#34d399;"></i> Rata-Rata: <span id="statAvg">0</span></div>
+                </div>
+            </div>
+
+            <!-- Top 3 3D Podium -->
+            <div class="podium-container" id="podiumContainer" style="display: none;">
+                <!-- Podium 2 (Silver) -->
+                <div class="podium-card podium-2" id="podium2">
+                    <div class="crown-icon">🥈</div>
+                    <div class="podium-avatar" id="avatar2">?</div>
+                    <div class="podium-name" id="name2">-</div>
+                    <div class="podium-score" id="score2">0</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">JUARA 2</div>
+                </div>
+
+                <!-- Podium 1 (Gold) -->
+                <div class="podium-card podium-1" id="podium1">
+                    <div class="crown-icon">👑</div>
+                    <div class="podium-avatar" id="avatar1">?</div>
+                    <div class="podium-name" id="name1">-</div>
+                    <div class="podium-score" id="score1">0</div>
+                    <div style="font-size:0.8rem; color:#fbbf24; font-weight:700; margin-top:4px;">JUARA 1</div>
+                </div>
+
+                <!-- Podium 3 (Bronze) -->
+                <div class="podium-card podium-3" id="podium3">
+                    <div class="crown-icon">🥉</div>
+                    <div class="podium-avatar" id="avatar3">?</div>
+                    <div class="podium-name" id="name3">-</div>
+                    <div class="podium-score" id="score3">0</div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">JUARA 3</div>
+                </div>
+            </div>
+
+            <!-- Table Column Headers -->
+            <div class="table-header hide-mobile" id="tableHeader" style="display: none;">
+                <div>Rank</div>
+                <div>Nama Peserta</div>
+                <div id="th1" style="text-align:center;">K1</div>
+                <div id="th2" style="text-align:center;">K2</div>
+                <div id="th3" style="text-align:center;">K3</div>
+                <div id="th4" style="text-align:center;">K4</div>
+                <div id="th5" style="text-align:center;">K5</div>
+                <div style="text-align:center;">Rata2</div>
+                <div style="text-align:center;">Total Skor</div>
+            </div>
+
+            <!-- Leaderboard List -->
+            <div class="leaderboard-list" id="leaderboardList">
+                <div class="empty-state">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <h3>Belum Ada Data Diumpankan</h3>
+                    <p style="font-size: 0.85rem; margin-top: 5px;">Unggah file CSV dengan 6 kolom atau klik "Gunakan Data Demo Sample".</p>
+                </div>
+            </div>
+
+            <!-- Watermark / Branding inside Export Area -->
+            <div class="export-watermark">
+                Design by <span>Hoelwiel Febtha B.L,S.Kom</span>
+            </div>
+        </div>
+
+        <!-- App Footer -->
+        <footer class="app-footer">
+            Design by <strong>Hoelwiel Febtha B.L,S.Kom</strong> &copy; 2026
+        </footer>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <i class="fa-solid fa-circle-check" style="color: #4ade80; font-size: 1.3rem;"></i>
+        <span id="toastMsg">Notifikasi</span>
+    </div>
+
+    <!-- Custom Script -->
+    <script src="script.js"></script>
+</body>
+</html>
