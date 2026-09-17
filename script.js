@@ -50,7 +50,7 @@ function processCSV(file) {
     reader.readAsText(file);
 }
 
-// Parsing Baris CSV dengan Handler Tanda Kutip
+// Parsing Baris CSV
 function parseCSVLine(text) {
     const result = [];
     let cell = '';
@@ -76,7 +76,7 @@ function parseCSVLine(text) {
     return result;
 }
 
-// Evaluasi Kriteria Jawaban Esai 1 (Maksimal 15 Poin)
+// Evaluasi Jawaban Esai 1 (Maksimal 15 Poin)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -117,7 +117,7 @@ function evaluateEssay1(text) {
     return Math.min(15, score);
 }
 
-// Evaluasi Kriteria Jawaban Esai 2 (Maksimal 15 Poin)
+// Evaluasi Jawaban Esai 2 (Maksimal 15 Poin)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -145,7 +145,7 @@ function evaluateEssay2(text) {
     return Math.min(15, score);
 }
 
-// Membaca Teks CSV dan Mengabaikan Baris/Kolom Kosong
+// Membaca CSV dan Hanya Mengambil Baris Berisi Nama Siswa
 function parseCSVText(csvText) {
     const lines = csvText.split(/\r?\n/);
     if (lines.length < 2) {
@@ -155,16 +155,18 @@ function parseCSVText(csvText) {
 
     parsedData = [];
     for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue; // Abaikan baris kosong
+        const lineStr = lines[i].trim();
+        if (!lineStr) continue;
 
-        const cols = parseCSVLine(lines[i]);
+        const cols = parseCSVLine(lineStr);
         
-        // Lewati jika kolom nama peserta kosong
-        if (!cols[2] || cols[2].trim() === '') continue;
+        // KUNCI PERBAIKAN: Abaikan baris jika Nama Siswa (Kolom 3 / Index 2) Kosong atau Default
+        const namaSiswa = cols[2] ? cols[2].trim() : '';
+        if (!namaSiswa || namaSiswa === '' || namaSiswa === 'undefined') continue;
 
         const timestamp = cols[0] || '-';
-        const noAbsen = cols[1] || `${i}`;
-        const namaLengkap = cols[2].trim().toUpperCase();
+        const noAbsen = cols[1] || `${parsedData.length + 1}`;
+        const namaLengkap = namaSiswa.toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
         const jawabanEsai2 = cols[5] || '';
@@ -183,7 +185,7 @@ function parseCSVText(csvText) {
     }
 
     if (parsedData.length === 0) {
-        alert('Tidak ditemukan data peserta yang valid pada file CSV.');
+        alert('Tidak ditemukan data nama peserta yang valid pada file CSV.');
         return;
     }
 
@@ -193,7 +195,7 @@ function parseCSVText(csvText) {
     calculateAndRender();
 }
 
-// Mengalkulasi Skor & Menampilkan Hasil Kinerja serta Rangking
+// Menghitung Ulang Statistik Berdasarkan Total Peserta Valid (27 Siswa)
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
@@ -206,13 +208,15 @@ function calculateAndRender() {
         };
     });
 
-    // Urutkan Peringkat Berdasarkan Total Nilai Tertinggi
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
-    // Update Statistik Ringkasan
-    document.getElementById('statTotal').innerText = computed.length;
+    // KUNCI PERBAIKAN: Mengkalkulasi hanya dari data yang terfilter (Misal 27 Peserta)
+    document.getElementById('statTotal').innerText = computed.length; 
     document.getElementById('statMax').innerText = computed[0].totalScore;
-    const avgAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0) / computed.length;
+    
+    // Rata-rata akurat dari 27 siswa
+    const sumAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0);
+    const avgAll = sumAll / computed.length;
     document.getElementById('statAvg').innerText = (Math.round(avgAll * 10) / 10);
 
     // Header Tabel
@@ -229,7 +233,7 @@ function calculateAndRender() {
         `;
     }
 
-    // Render Podium Top 3 (Tampilkan hanya sesuai jumlah peserta yang ada)
+    // Render Podium Top 3
     const podiumContainer = document.getElementById('podiumContainer');
     const pod1 = document.getElementById('podium1');
     const pod2 = document.getElementById('podium2');
@@ -238,7 +242,6 @@ function calculateAndRender() {
     if (podiumContainer) {
         podiumContainer.style.display = 'flex';
 
-        // Rank 1
         if (computed[0]) {
             document.getElementById('name1').innerText = computed[0].name;
             document.getElementById('score1').innerText = computed[0].totalScore;
@@ -246,28 +249,26 @@ function calculateAndRender() {
             if (pod1) pod1.style.display = 'flex';
         }
 
-        // Rank 2
         if (computed[1]) {
             document.getElementById('name2').innerText = computed[1].name;
             document.getElementById('score2').innerText = computed[1].totalScore;
             document.getElementById('avatar2').innerText = computed[1].noAbsen;
             if (pod2) pod2.style.display = 'flex';
         } else if (pod2) {
-            pod2.style.display = 'none'; // Sembunyikan jika peserta kurang dari 2
+            pod2.style.display = 'none';
         }
 
-        // Rank 3
         if (computed[2]) {
             document.getElementById('name3').innerText = computed[2].name;
             document.getElementById('score3').innerText = computed[2].totalScore;
             document.getElementById('avatar3').innerText = computed[2].noAbsen;
             if (pod3) pod3.style.display = 'flex';
         } else if (pod3) {
-            pod3.style.display = 'none'; // Sembunyikan jika peserta kurang dari 3
+            pod3.style.display = 'none';
         }
     }
 
-    // Render Baris Daftar Ranking
+    // Render Baris Leaderboard (Hanya 27 Peserta)
     const listContainer = document.getElementById('leaderboardList');
     listContainer.innerHTML = '';
 
@@ -360,21 +361,4 @@ function checkUrlForSharedData() {
             console.error('Gagal membaca data share link:', e);
         }
     }
-}
-
-// Unduh Template File CSV Kosong (Khusus Penggunaan Pengajar/Admin)
-function downloadSampleCSV() {
-    const sampleCSV = `Timestamp,No Absen,Nama Lengkap,Nilai PG,Jawaban Esai 1,Jawaban Esai 2
-2026-09-17 08:00,01,NAMA SISWA LENGKAP,70,"Isi jawaban esai 1","Isi jawaban esai 2"`;
-
-    const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "template_ujian_6kolom.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Template CSV berhasil diunduh!');
 }
