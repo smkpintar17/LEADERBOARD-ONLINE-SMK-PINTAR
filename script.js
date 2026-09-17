@@ -277,83 +277,50 @@ function calculateAndRender() {
     });
 }
 
-// PEMBARUAN: EKSPOR GAMBAR PNG/JPG (Mendukung Android, iOS, iPad & Desktop)
-function exportToImage(format = 'png') {
+// PERBAIKAN: EKSPOR GAMBAR PNG/JPG (Anti-Blank & Bebas Error)
+function exportToImage(format = 'jpeg') {
     if (parsedData.length === 0) {
         alert('Silakan muat data CSV terlebih dahulu!');
         return;
     }
 
     showToast('Sedang memproses gambar...');
-    const exportArea = document.getElementById('export-container');
+    
+    // Gunakan area yang merangkum seluruh hasil/tabel
+    const exportArea = document.getElementById('export-container') || document.body;
 
-    // Pengaturan responsive canvas
+    // html2canvas render steril
     html2canvas(exportArea, {
-        scale: 2, // Kualitas HD/Retina Display
+        scale: 2, // Kualitas HD
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#0f0c20',
-        windowWidth: 1200, // Mengunci lebar layout agar tetap rapi meski di layar kecil/HP
-        onclone: (clonedDoc) => {
-            const clonedTarget = clonedDoc.getElementById('export-container');
-            if (clonedTarget) {
-                clonedTarget.style.transform = 'none';
-                clonedTarget.style.margin = '0 auto';
-                clonedTarget.style.maxWidth = '1200px';
-                clonedTarget.style.width = '100%';
-            }
-        }
+        backgroundColor: '#0f0c20', // Sesuai tema kegelapan dashboard
+        logging: false
     }).then(canvas => {
-        const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-        const fileName = `Leaderboard_Ujian_${new Date().toISOString().slice(0, 10)}.${format}`;
+        const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+        const ext = format === 'png' ? 'png' : 'jpg';
+        const fileName = `Leaderboard_Ujian_${new Date().toISOString().slice(0, 10)}.${ext}`;
 
-        // Mengubah canvas menjadi Blob Gambar
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                alert('Gagal mengekspor gambar.');
-                return;
-            }
+        // Mengonversi langsung ke Data URL untuk kompatibilitas penuh
+        const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
-            const file = new File([blob], fileName, { type: mimeType });
+        // Langsung eksekusi unduh link
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-            // Jika dibuka di Perangkat Seluler (iOS/Android) yang mendukung Share File
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                navigator.share({
-                    files: [file],
-                    title: 'Leaderboard Hasil Ujian',
-                    text: 'Berikut adalah hasil nilai leaderboard ujian:'
-                }).then(() => {
-                    showToast('Gambar berhasil dibagikan/disimpan!');
-                }).catch((err) => {
-                    if (err.name !== 'AbortError') directDownload(blob, fileName);
-                });
-            } else {
-                // Untuk Desktop / Browser yang tidak mendukung Web Share
-                directDownload(blob, fileName);
-            }
-        }, mimeType, 0.95);
+        showToast('Gambar leaderboard berhasil diunduh!');
     }).catch(err => {
         console.error("Export Error:", err);
-        alert('Terjadi kesalahan saat memproses gambar.');
+        alert('Gagal mengekspor gambar. Pastikan pustaka html2canvas telah dimuat.');
     });
 }
 
-// Helper Download Otomatis
-function directDownload(blob, fileName) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast('Gambar berhasil diunduh!');
-}
-
-// Alias fungsi untuk memanggil gambar PNG/JPG
 function exportToJPG() {
-    exportToImage('jpg');
+    exportToImage('jpeg');
 }
 
 function exportToPNG() {
