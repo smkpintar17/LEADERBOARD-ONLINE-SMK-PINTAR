@@ -1,11 +1,11 @@
 let parsedData = [];
 
-// Inisialisasi saat halaman dimuat (Cek data Share Link)
+// Inisialisasi saat halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
     checkUrlForSharedData();
 });
 
-// Event Listener Drag & Drop File CSV
+// Drag & Drop File CSV
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('csvFileInput');
 
@@ -45,12 +45,12 @@ function processCSV(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         parseCSVText(e.target.result);
-        showToast('Data CSV berhasil diunggah & dinilai!');
+        showToast('Data CSV berhasil diproses & dinilai!');
     };
     reader.readAsText(file);
 }
 
-// Parsing Baris CSV
+// Parser Baris CSV Presisi
 function parseCSVLine(text) {
     const result = [];
     let cell = '';
@@ -76,76 +76,32 @@ function parseCSVLine(text) {
     return result;
 }
 
-// Evaluasi Jawaban Esai 1 (Maksimal 15 Poin)
+// Evaluasi Esai 1 (Max 15)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
     let score = 0;
 
-    const hasRedundansi = str.includes('redundansi') || str.includes('pengulangan');
-    const hasInsert = str.includes('insert') || str.includes('tambah');
-    const hasDelete = str.includes('delete') || str.includes('hapus');
-    const hasUpdate = str.includes('update') || str.includes('ubah');
-
-    if (hasRedundansi && (hasInsert || hasDelete || hasUpdate)) {
-        score += 5;
-    } else if (hasRedundansi || hasInsert || hasDelete || hasUpdate) {
-        score += 2.5;
-    }
-
-    const hasPelanggan = str.includes('tabel_pelanggan') || str.includes('pelanggan');
-    const hasBarang = str.includes('tabel_barang') || str.includes('barang');
-    const hasTransaksi = str.includes('tabel_transaksi') || str.includes('transaksi');
-    const hasDetail = str.includes('tabel_detail') || str.includes('detail');
-
-    if (hasPelanggan && hasBarang && (hasTransaksi || hasDetail)) {
-        score += 5;
-    } else if (hasPelanggan || hasBarang || hasTransaksi) {
-        score += 2.5;
-    }
-
-    const hasCreate = str.includes('create table');
-    const hasPK = str.includes('primary key');
-    const hasAuto = str.includes('auto_increment');
-
-    if (hasCreate && (hasPK || hasAuto)) {
-        score += 5;
-    } else if (hasCreate) {
-        score += 2.5;
-    }
+    if (str.includes('redundansi') || str.includes('pengulangan')) score += 5;
+    if (str.includes('pelanggan') || str.includes('transaksi') || str.includes('barang')) score += 5;
+    if (str.includes('create table') || str.includes('primary key')) score += 5;
 
     return Math.min(15, score);
 }
 
-// Evaluasi Jawaban Esai 2 (Maksimal 15 Poin)
+// Evaluasi Esai 2 (Max 15)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
     let score = 0;
 
-    const hasClient = str.includes('client-side') || str.includes('client');
-    const hasBrowser = str.includes('browser') || str.includes('peramban') || str.includes('html') || str.includes('css') || str.includes('js');
-    const hasServer = str.includes('server-side') || str.includes('server') || str.includes('php') || str.includes('node');
-
-    if (hasClient && hasServer && hasBrowser) {
-        score += 7.5;
-    } else if (hasClient || hasServer) {
-        score += 4;
-    }
-
-    const hasSkenario = str.includes('transaksi') || str.includes('pembayaran') || str.includes('autentikasi') || str.includes('kata sandi') || str.includes('password');
-    const hasAlasan = str.includes('developer tools') || str.includes('inspeksi') || str.includes('manipulasi') || str.includes('validasi') || str.includes('sensitif');
-
-    if (hasSkenario && hasAlasan) {
-        score += 7.5;
-    } else if (hasSkenario || hasAlasan) {
-        score += 4;
-    }
+    if (str.includes('client') || str.includes('browser')) score += 7.5;
+    if (str.includes('server') || str.includes('transaksi') || str.includes('autentikasi')) score += 7.5;
 
     return Math.min(15, score);
 }
 
-// Membaca CSV dan Hanya Mengambil Baris Berisi Nama Siswa
+// Parsing CSV Presisi - Hanya Memproses Peserta Asli
 function parseCSVText(csvText) {
     const lines = csvText.split(/\r?\n/);
     if (lines.length < 2) {
@@ -154,19 +110,22 @@ function parseCSVText(csvText) {
     }
 
     parsedData = [];
+
     for (let i = 1; i < lines.length; i++) {
         const lineStr = lines[i].trim();
         if (!lineStr) continue;
 
         const cols = parseCSVLine(lineStr);
         
-        // KUNCI PERBAIKAN: Abaikan baris jika Nama Siswa (Kolom 3 / Index 2) Kosong atau Default
-        const namaSiswa = cols[2] ? cols[2].trim() : '';
-        if (!namaSiswa || namaSiswa === '' || namaSiswa === 'undefined') continue;
+        // VALIDASI KETAT: Abaikan baris kosong atau nama fiktif/pendek
+        const rawNama = cols[2] ? cols[2].trim() : '';
+        if (!rawNama || rawNama.length < 2 || rawNama.toUpperCase().includes('NAMA SISWA')) {
+            continue; 
+        }
 
         const timestamp = cols[0] || '-';
         const noAbsen = cols[1] || `${parsedData.length + 1}`;
-        const namaLengkap = namaSiswa.toUpperCase();
+        const namaLengkap = rawNama.toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
         const jawabanEsai2 = cols[5] || '';
@@ -185,7 +144,7 @@ function parseCSVText(csvText) {
     }
 
     if (parsedData.length === 0) {
-        alert('Tidak ditemukan data nama peserta yang valid pada file CSV.');
+        alert('Tidak ditemukan data peserta valid pada file CSV.');
         return;
     }
 
@@ -195,91 +154,122 @@ function parseCSVText(csvText) {
     calculateAndRender();
 }
 
-// Menghitung Ulang Statistik Berdasarkan Total Peserta Valid (27 Siswa)
+// Mengolah Nilai & Menampilkan Tampilan Top 10 + List 11+
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
+    // Hitung total skor
     let computed = parsedData.map(item => {
         const total = item.nilaiPG + item.scoreEsai1 + item.scoreEsai2;
-
         return {
             ...item,
             totalScore: Math.round(total * 100) / 100
         };
     });
 
+    // Urutkan dari nilai tertinggi ke terendah
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
-    // KUNCI PERBAIKAN: Mengkalkulasi hanya dari data yang terfilter (Misal 27 Peserta)
+    // Update Statistik
     document.getElementById('statTotal').innerText = computed.length; 
     document.getElementById('statMax').innerText = computed[0].totalScore;
     
-    // Rata-rata akurat dari 27 siswa
     const sumAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0);
     const avgAll = sumAll / computed.length;
     document.getElementById('statAvg').innerText = (Math.round(avgAll * 10) / 10);
 
-    // Header Tabel
+    // PEMISAHAN DATA: TOP 10 DAN LIST 11+
+    const top10Data = computed.slice(0, 10);
+    const remainingData = computed.slice(10);
+
+    // RENDER PODIUM TOP 10
+    renderPodiumTop10(top10Data);
+
+    // RENDER LIST KINERJA (PESERTA RANKING 11 KETAS)
+    renderRemainingList(remainingData);
+}
+
+// Fungsi Render Kartu/Podium Khusus Rangking 1 - 10
+function renderPodiumTop10(top10Data) {
+    const podiumContainer = document.getElementById('podiumContainer');
+    if (!podiumContainer) return;
+
+    podiumContainer.style.display = 'flex';
+    podiumContainer.style.flexWrap = 'wrap';
+    podiumContainer.style.justifyContent = 'center';
+    podiumContainer.style.gap = '15px';
+    podiumContainer.innerHTML = ''; // Reset container
+
+    top10Data.forEach((item, index) => {
+        const rank = index + 1;
+        const card = document.createElement('div');
+        
+        // Styling spesifik berdasarkan tingkat peringkat
+        let rankColor = '#94a3b8';
+        if (rank === 1) rankColor = '#f59e0b'; // Emas
+        else if (rank === 2) rankColor = '#94a3b8'; // Perak
+        else if (rank === 3) rankColor = '#d97706'; // Perunggu
+        else if (rank <= 10) rankColor = '#8b5cf6'; // Ungu untuk Rank 4-10
+
+        card.className = `podium-card rank-${rank}`;
+        card.style.cssText = `
+            background: rgba(30, 27, 75, 0.6);
+            border: 2px solid ${rankColor};
+            border-radius: 12px;
+            padding: 12px;
+            width: 180px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            position: relative;
+        `;
+
+        card.innerHTML = `
+            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: ${rankColor}; color: #fff; font-weight: bold; border-radius: 20px; padding: 2px 10px; font-size: 0.8rem;">
+                JUARA ${rank}
+            </div>
+            <div style="margin-top: 10px; font-size: 1.2rem; font-weight: bold; color: #38bdf8;">${item.noAbsen}</div>
+            <div style="font-weight: 600; color: #f8fafc; font-size: 0.85rem; margin: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
+            <div style="font-size: 1.3rem; font-weight: 800; color: #4ade80;">${item.totalScore}</div>
+        `;
+
+        podiumContainer.appendChild(card);
+    });
+}
+
+// Fungsi Render Tabel Daftar Peserta Rangking 11 dan Seterusnya
+function renderRemainingList(remainingData) {
+    const listContainer = document.getElementById('leaderboardList');
     const thHeader = document.getElementById('tableHeader');
+
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+
+    // Jika peserta tidak melebihi 10, sembunyikan header tabel list
+    if (remainingData.length === 0) {
+        if (thHeader) thHeader.style.display = 'none';
+        return;
+    }
+
     if (thHeader) {
         thHeader.style.display = 'grid';
         thHeader.innerHTML = `
             <div>Rank</div>
             <div>No. Absen & Nama</div>
             <div style="text-align:center;">Nilai PG</div>
-            <div style="text-align:center;">Esai 1 (Max 15)</div>
-            <div style="text-align:center;">Esai 2 (Max 15)</div>
+            <div style="text-align:center;">Esai 1</div>
+            <div style="text-align:center;">Esai 2</div>
             <div style="text-align:center;">Total Nilai</div>
         `;
     }
 
-    // Render Podium Top 3
-    const podiumContainer = document.getElementById('podiumContainer');
-    const pod1 = document.getElementById('podium1');
-    const pod2 = document.getElementById('podium2');
-    const pod3 = document.getElementById('podium3');
-
-    if (podiumContainer) {
-        podiumContainer.style.display = 'flex';
-
-        if (computed[0]) {
-            document.getElementById('name1').innerText = computed[0].name;
-            document.getElementById('score1').innerText = computed[0].totalScore;
-            document.getElementById('avatar1').innerText = computed[0].noAbsen;
-            if (pod1) pod1.style.display = 'flex';
-        }
-
-        if (computed[1]) {
-            document.getElementById('name2').innerText = computed[1].name;
-            document.getElementById('score2').innerText = computed[1].totalScore;
-            document.getElementById('avatar2').innerText = computed[1].noAbsen;
-            if (pod2) pod2.style.display = 'flex';
-        } else if (pod2) {
-            pod2.style.display = 'none';
-        }
-
-        if (computed[2]) {
-            document.getElementById('name3').innerText = computed[2].name;
-            document.getElementById('score3').innerText = computed[2].totalScore;
-            document.getElementById('avatar3').innerText = computed[2].noAbsen;
-            if (pod3) pod3.style.display = 'flex';
-        } else if (pod3) {
-            pod3.style.display = 'none';
-        }
-    }
-
-    // Render Baris Leaderboard (Hanya 27 Peserta)
-    const listContainer = document.getElementById('leaderboardList');
-    listContainer.innerHTML = '';
-
-    computed.forEach((item, index) => {
-        const rank = index + 1;
+    remainingData.forEach((item, index) => {
+        const actualRank = index + 11; // Melanjutkan nomor urut dari rank 11
         const card = document.createElement('div');
-        card.className = `rank-card rank-${rank <= 3 ? rank : 'other'}`;
+        card.className = 'rank-card rank-other';
         card.style.gridTemplateColumns = '50px 2.5fr 1fr 1fr 1fr 1.2fr';
 
         card.innerHTML = `
-            <div class="rank-badge">${rank}</div>
+            <div class="rank-badge">${actualRank}</div>
             <div class="participant-info">
                 <div class="avatar-mini">${item.noAbsen}</div>
                 <div>
@@ -296,7 +286,7 @@ function calculateAndRender() {
     });
 }
 
-// Fitur Bagikan Link Hasil
+// Fitur Sharing Web Link
 function shareResults() {
     if (parsedData.length === 0) {
         alert('Silakan muat file CSV terlebih dahulu!');
@@ -337,7 +327,6 @@ function copyToClipboard(url) {
     });
 }
 
-// Membaca Data Terbagikan Dari URL Hash
 function checkUrlForSharedData() {
     const hash = window.location.hash;
     if (hash && hash.includes('#data=')) {
