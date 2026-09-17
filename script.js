@@ -1,5 +1,10 @@
 let parsedData = [];
 
+// Inisialisasi saat halaman dimuat (Cek data Share Link)
+window.addEventListener('DOMContentLoaded', () => {
+    checkUrlForSharedData();
+});
+
 // Event Listener Drag & Drop
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('csvFileInput');
@@ -45,7 +50,7 @@ function processCSV(file) {
     reader.readAsText(file);
 }
 
-// Fungsi Parse Baris CSV (Handling Tanda Kutip & Koma Dalam Jawaban)
+// Fungsi Parse Baris CSV
 function parseCSVLine(text) {
     const result = [];
     let cell = '';
@@ -71,13 +76,12 @@ function parseCSVLine(text) {
     return result;
 }
 
-// Evaluasi Akurat Jawaban Esai 1 (Maksimal 15 Poin)
+// Evaluasi Jawaban Esai 1 (Maksimal 15 Poin)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
     let score = 0;
 
-    // A. Redundansi & Anomali (Maksimal 5 Poin)
     const hasRedundansi = str.includes('redundansi') || str.includes('pengulangan');
     const hasInsert = str.includes('insert') || str.includes('tambah');
     const hasDelete = str.includes('delete') || str.includes('hapus');
@@ -89,7 +93,6 @@ function evaluateEssay1(text) {
         score += 2.5;
     }
 
-    // B. Normalisasi 3NF (Maksimal 5 Poin)
     const hasPelanggan = str.includes('tabel_pelanggan') || str.includes('pelanggan');
     const hasBarang = str.includes('tabel_barang') || str.includes('barang');
     const hasTransaksi = str.includes('tabel_transaksi') || str.includes('transaksi');
@@ -101,7 +104,6 @@ function evaluateEssay1(text) {
         score += 2.5;
     }
 
-    // C. Contoh SQL DDL (Maksimal 5 Poin)
     const hasCreate = str.includes('create table');
     const hasPK = str.includes('primary key');
     const hasAuto = str.includes('auto_increment');
@@ -115,13 +117,12 @@ function evaluateEssay1(text) {
     return Math.min(15, score);
 }
 
-// Evaluasi Akurat Jawaban Esai 2 (Maksimal 15 Poin)
+// Evaluasi Jawaban Esai 2 (Maksimal 15 Poin)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
     let score = 0;
 
-    // A. Perbedaan & Cara Kerja Client-Side vs Server-Side (Maksimal 7.5 Poin)
     const hasClient = str.includes('client-side') || str.includes('client');
     const hasBrowser = str.includes('browser') || str.includes('peramban') || str.includes('html') || str.includes('css') || str.includes('js');
     const hasServer = str.includes('server-side') || str.includes('server') || str.includes('php') || str.includes('node');
@@ -132,7 +133,6 @@ function evaluateEssay2(text) {
         score += 4;
     }
 
-    // B. Skenario Keamanan (Maksimal 7.5 Poin)
     const hasSkenario = str.includes('transaksi') || str.includes('pembayaran') || str.includes('autentikasi') || str.includes('kata sandi') || str.includes('password');
     const hasAlasan = str.includes('developer tools') || str.includes('inspeksi') || str.includes('manipulasi') || str.includes('validasi') || str.includes('sensitif');
 
@@ -160,13 +160,11 @@ function parseCSVText(csvText) {
 
         const timestamp = cols[0] || '-';
         const noAbsen = cols[1] || `${i}`;
-        // Nama otomatis dikonversi ke HURUF KAPITAL
         const namaLengkap = (cols[2] || `SISWA ${i}`).toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
         const jawabanEsai2 = cols[5] || '';
 
-        // Hitung Otomatis Nilai Esai
         const scoreEsai1 = evaluateEssay1(jawabanEsai1);
         const scoreEsai2 = evaluateEssay2(jawabanEsai2);
 
@@ -180,18 +178,15 @@ function parseCSVText(csvText) {
         });
     }
 
-    // Sembunyikan/Hapus Kotak Pengaturan Bobot Jika Ada di DOM
     const configBox = document.getElementById('configBox');
     if (configBox) configBox.style.display = 'none';
 
-    // Langsung Hitung & Render Otomatis
     calculateAndRender();
 }
 
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
-    // Perhitungan Langsung Tanpa Bobot Tambahan
     let computed = parsedData.map(item => {
         const total = item.nilaiPG + item.scoreEsai1 + item.scoreEsai2;
 
@@ -201,7 +196,6 @@ function calculateAndRender() {
         };
     });
 
-    // Urutkan Nilai Tertinggi ke Terendah
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
     // Update Statistik
@@ -283,41 +277,153 @@ function calculateAndRender() {
     });
 }
 
-// Export Gambar JPG Tanpa Blank
-function exportToJPG() {
+// PEMBARUAN: EKSPOR GAMBAR PNG/JPG (Mendukung Android, iOS, iPad & Desktop)
+function exportToImage(format = 'png') {
     if (parsedData.length === 0) {
         alert('Silakan muat data CSV terlebih dahulu!');
         return;
     }
 
-    showToast('Sedang merender gambar JPG...');
+    showToast('Sedang memproses gambar...');
     const exportArea = document.getElementById('export-container');
 
+    // Pengaturan responsive canvas
     html2canvas(exportArea, {
-        scale: 2,
+        scale: 2, // Kualitas HD/Retina Display
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#0f0c20',
-        width: exportArea.offsetWidth,
-        height: exportArea.offsetHeight,
+        windowWidth: 1200, // Mengunci lebar layout agar tetap rapi meski di layar kecil/HP
         onclone: (clonedDoc) => {
             const clonedTarget = clonedDoc.getElementById('export-container');
             if (clonedTarget) {
                 clonedTarget.style.transform = 'none';
-                clonedTarget.style.margin = '0';
+                clonedTarget.style.margin = '0 auto';
+                clonedTarget.style.maxWidth = '1200px';
+                clonedTarget.style.width = '100%';
             }
         }
     }).then(canvas => {
-        const image = canvas.toDataURL('image/jpeg', 0.95);
-        const link = document.createElement('a');
-        link.download = `Leaderboard_Hasil_Ujian_${new Date().toISOString().slice(0,10)}.jpg`;
-        link.href = image;
-        link.click();
-        showToast('Gambar JPG berhasil diunduh!');
+        const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+        const fileName = `Leaderboard_Ujian_${new Date().toISOString().slice(0, 10)}.${format}`;
+
+        // Mengubah canvas menjadi Blob Gambar
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                alert('Gagal mengekspor gambar.');
+                return;
+            }
+
+            const file = new File([blob], fileName, { type: mimeType });
+
+            // Jika dibuka di Perangkat Seluler (iOS/Android) yang mendukung Share File
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    files: [file],
+                    title: 'Leaderboard Hasil Ujian',
+                    text: 'Berikut adalah hasil nilai leaderboard ujian:'
+                }).then(() => {
+                    showToast('Gambar berhasil dibagikan/disimpan!');
+                }).catch((err) => {
+                    if (err.name !== 'AbortError') directDownload(blob, fileName);
+                });
+            } else {
+                // Untuk Desktop / Browser yang tidak mendukung Web Share
+                directDownload(blob, fileName);
+            }
+        }, mimeType, 0.95);
     }).catch(err => {
         console.error("Export Error:", err);
-        alert('Terjadi kesalahan saat memproses gambar JPG.');
+        alert('Terjadi kesalahan saat memproses gambar.');
     });
+}
+
+// Helper Download Otomatis
+function directDownload(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Gambar berhasil diunduh!');
+}
+
+// Alias fungsi untuk memanggil gambar PNG/JPG
+function exportToJPG() {
+    exportToImage('jpg');
+}
+
+function exportToPNG() {
+    exportToImage('png');
+}
+
+// FITUR SHARING WEB LINK
+function shareResults() {
+    if (parsedData.length === 0) {
+        alert('Silakan muat data CSV terlebih dahulu!');
+        return;
+    }
+
+    const compactData = parsedData.map(item => [
+        item.timestamp,
+        item.noAbsen,
+        item.name,
+        item.nilaiPG,
+        item.scoreEsai1,
+        item.scoreEsai2
+    ]);
+
+    const jsonStr = JSON.stringify(compactData);
+    const encodedData = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonStr))));
+    const shareableUrl = `${window.location.origin}${window.location.pathname}#data=${encodedData}`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'Leaderboard Hasil Ujian',
+            text: 'Cek hasil nilai dan peringkat ujian terbaru di sini:',
+            url: shareableUrl
+        }).catch(() => {
+            copyToClipboard(shareableUrl);
+        });
+    } else {
+        copyToClipboard(shareableUrl);
+    }
+}
+
+function copyToClipboard(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('Link hasil leaderboard berhasil disalin!');
+    }).catch(() => {
+        prompt('Salin link berikut untuk membagikan hasil:', url);
+    });
+}
+
+function checkUrlForSharedData() {
+    const hash = window.location.hash;
+    if (hash && hash.includes('#data=')) {
+        try {
+            const rawData = hash.replace('#data=', '');
+            const decodedJson = decodeURIComponent(escape(atob(decodeURIComponent(rawData))));
+            const compactData = JSON.parse(decodedJson);
+
+            parsedData = compactData.map(cols => ({
+                timestamp: cols[0],
+                noAbsen: cols[1],
+                name: cols[2],
+                nilaiPG: cols[3],
+                scoreEsai1: cols[4],
+                scoreEsai2: cols[5]
+            }));
+
+            calculateAndRender();
+            showToast('Menampilkan data leaderboard dari link bagikan!');
+        } catch (e) {
+            console.error('Gagal membaca data share link:', e);
+        }
+    }
 }
 
 // Load Sampel Data Demo
