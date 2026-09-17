@@ -5,7 +5,7 @@ window.addEventListener('DOMContentLoaded', () => {
     checkUrlForSharedData();
 });
 
-// Drag & Drop File CSV
+// Event Listener Drag & Drop CSV
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('csvFileInput');
 
@@ -45,38 +45,12 @@ function processCSV(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         parseCSVText(e.target.result);
-        showToast('Data CSV berhasil diproses & dinilai!');
+        showToast('Data CSV berhasil diunggah & dinilai!');
     };
     reader.readAsText(file);
 }
 
-// Parser Baris CSV Presisi
-function parseCSVLine(text) {
-    const result = [];
-    let cell = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < text.length; i++) {
-        let c = text[i];
-        if (c === '"') {
-            if (inQuotes && text[i + 1] === '"') {
-                cell += '"';
-                i++;
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (c === ',' && !inQuotes) {
-            result.push(cell.trim());
-            cell = '';
-        } else {
-            cell += c;
-        }
-    }
-    result.push(cell.trim());
-    return result;
-}
-
-// Evaluasi Esai 1 (Max 15)
+// Evaluasi Kriteria Jawaban Esai 1 (Max 15)
 function evaluateEssay1(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -89,7 +63,7 @@ function evaluateEssay1(text) {
     return Math.min(15, score);
 }
 
-// Evaluasi Esai 2 (Max 15)
+// Evaluasi Kriteria Jawaban Esai 2 (Max 15)
 function evaluateEssay2(text) {
     if (!text) return 0;
     const str = text.toLowerCase();
@@ -101,30 +75,65 @@ function evaluateEssay2(text) {
     return Math.min(15, score);
 }
 
-// Parsing CSV Presisi - Hanya Memproses Peserta Asli
+// Advanced CSV Parser untuk Menangani Jawaban Multiline dalam Kutip
+function parseCSVToRows(text) {
+    const p = [[]];
+    let quote = false;
+    let cell = '';
+
+    for (let i = 0; i < text.length; i++) {
+        let cc = text[i];
+        let nc = text[i+1];
+
+        if (cc === '"') {
+            if (quote && nc === '"') {
+                cell += '"';
+                i++;
+            } else {
+                quote = !quote;
+            }
+        } else if (cc === ',' && !quote) {
+            p[p.length - 1].push(cell.trim());
+            cell = '';
+        } else if ((cc === '\r' || cc === '\n') && !quote) {
+            if (cc === '\r' && nc === '\n') i++;
+            p[p.length - 1].push(cell.trim());
+            cell = '';
+            p.push([]);
+        } else {
+            cell += cc;
+        }
+    }
+    if (cell.length > 0 || p[p.length - 1].length > 0) {
+        p[p.length - 1].push(cell.trim());
+    }
+    return p.filter(row => row.length > 1);
+}
+
+// Parsing CSV & Membersihkan Data Tidak Penting
 function parseCSVText(csvText) {
-    const lines = csvText.split(/\r?\n/);
-    if (lines.length < 2) {
-        alert('File CSV tidak berisi data yang valid!');
+    const rows = parseCSVToRows(csvText);
+    
+    if (rows.length < 2) {
+        alert('File CSV tidak memiliki data yang cukup!');
         return;
     }
 
     parsedData = [];
 
-    for (let i = 1; i < lines.length; i++) {
-        const lineStr = lines[i].trim();
-        if (!lineStr) continue;
-
-        const cols = parseCSVLine(lineStr);
+    for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i];
         
-        // VALIDASI KETAT: Abaikan baris kosong atau nama fiktif/pendek
-        const rawNama = cols[2] ? cols[2].trim() : '';
-        if (!rawNama || rawNama.length < 2 || rawNama.toUpperCase().includes('NAMA SISWA')) {
-            continue; 
+        // Ambil nama dari kolom ke-3 (index 2)
+        const rawNama = cols[2] ? cols[2].replace(/^"|"$/g, '').trim() : '';
+
+        // Abaikan jika baris kosong / nama tidak terisi / kata kunci header
+        if (!rawNama || rawNama.length < 2 || rawNama.toUpperCase().includes('NAMA LENGKAP')) {
+            continue;
         }
 
-        const timestamp = cols[0] || '-';
-        const noAbsen = cols[1] || `${parsedData.length + 1}`;
+        const timestamp = cols[0] ? cols[0].replace(/^"|"$/g, '').trim() : '-';
+        const noAbsen = cols[1] ? cols[1].replace(/^"|"$/g, '').trim() : `${parsedData.length + 1}`;
         const namaLengkap = rawNama.toUpperCase();
         const nilaiPG = parseFloat(cols[3]) || 0;
         const jawabanEsai1 = cols[4] || '';
@@ -144,7 +153,7 @@ function parseCSVText(csvText) {
     }
 
     if (parsedData.length === 0) {
-        alert('Tidak ditemukan data peserta valid pada file CSV.');
+        alert('Tidak ditemukan data peserta yang valid!');
         return;
     }
 
@@ -154,11 +163,10 @@ function parseCSVText(csvText) {
     calculateAndRender();
 }
 
-// Mengolah Nilai & Menampilkan Tampilan Top 10 + List 11+
+// Hitung Skor & Menampilkan Hasil Kinerja
 function calculateAndRender() {
     if (parsedData.length === 0) return;
 
-    // Hitung total skor
     let computed = parsedData.map(item => {
         const total = item.nilaiPG + item.scoreEsai1 + item.scoreEsai2;
         return {
@@ -167,29 +175,26 @@ function calculateAndRender() {
         };
     });
 
-    // Urutkan dari nilai tertinggi ke terendah
+    // Urutkan Peringkat
     computed.sort((a, b) => b.totalScore - a.totalScore);
 
-    // Update Statistik
-    document.getElementById('statTotal').innerText = computed.length; 
+    // Update Ringkasan Statistik
+    document.getElementById('statTotal').innerText = computed.length;
     document.getElementById('statMax').innerText = computed[0].totalScore;
     
     const sumAll = computed.reduce((acc, curr) => acc + curr.totalScore, 0);
     const avgAll = sumAll / computed.length;
     document.getElementById('statAvg').innerText = (Math.round(avgAll * 10) / 10);
 
-    // PEMISAHAN DATA: TOP 10 DAN LIST 11+
+    // Pisahkan Top 10 dan Sisa Peserta
     const top10Data = computed.slice(0, 10);
     const remainingData = computed.slice(10);
 
-    // RENDER PODIUM TOP 10
     renderPodiumTop10(top10Data);
-
-    // RENDER LIST KINERJA (PESERTA RANKING 11 KETAS)
     renderRemainingList(remainingData);
 }
 
-// Fungsi Render Kartu/Podium Khusus Rangking 1 - 10
+// Render Podium Top 10
 function renderPodiumTop10(top10Data) {
     const podiumContainer = document.getElementById('podiumContainer');
     if (!podiumContainer) return;
@@ -198,18 +203,16 @@ function renderPodiumTop10(top10Data) {
     podiumContainer.style.flexWrap = 'wrap';
     podiumContainer.style.justifyContent = 'center';
     podiumContainer.style.gap = '15px';
-    podiumContainer.innerHTML = ''; // Reset container
+    podiumContainer.innerHTML = '';
 
     top10Data.forEach((item, index) => {
         const rank = index + 1;
         const card = document.createElement('div');
         
-        // Styling spesifik berdasarkan tingkat peringkat
-        let rankColor = '#94a3b8';
-        if (rank === 1) rankColor = '#f59e0b'; // Emas
-        else if (rank === 2) rankColor = '#94a3b8'; // Perak
-        else if (rank === 3) rankColor = '#d97706'; // Perunggu
-        else if (rank <= 10) rankColor = '#8b5cf6'; // Ungu untuk Rank 4-10
+        let rankColor = '#8b5cf6';
+        if (rank === 1) rankColor = '#f59e0b';
+        else if (rank === 2) rankColor = '#94a3b8';
+        else if (rank === 3) rankColor = '#d97706';
 
         card.className = `podium-card rank-${rank}`;
         card.style.cssText = `
@@ -217,26 +220,26 @@ function renderPodiumTop10(top10Data) {
             border: 2px solid ${rankColor};
             border-radius: 12px;
             padding: 12px;
-            width: 180px;
+            width: 170px;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             position: relative;
         `;
 
         card.innerHTML = `
-            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: ${rankColor}; color: #fff; font-weight: bold; border-radius: 20px; padding: 2px 10px; font-size: 0.8rem;">
+            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: ${rankColor}; color: #fff; font-weight: bold; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem;">
                 JUARA ${rank}
             </div>
-            <div style="margin-top: 10px; font-size: 1.2rem; font-weight: bold; color: #38bdf8;">${item.noAbsen}</div>
+            <div style="margin-top: 8px; font-size: 1.1rem; font-weight: bold; color: #38bdf8;">${item.noAbsen}</div>
             <div style="font-weight: 600; color: #f8fafc; font-size: 0.85rem; margin: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.name}">${item.name}</div>
-            <div style="font-size: 1.3rem; font-weight: 800; color: #4ade80;">${item.totalScore}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #4ade80;">${item.totalScore}</div>
         `;
 
         podiumContainer.appendChild(card);
     });
 }
 
-// Fungsi Render Tabel Daftar Peserta Rangking 11 dan Seterusnya
+// Render List Tabel Pasca-Top 10 (Ranking 11 dst)
 function renderRemainingList(remainingData) {
     const listContainer = document.getElementById('leaderboardList');
     const thHeader = document.getElementById('tableHeader');
@@ -244,7 +247,6 @@ function renderRemainingList(remainingData) {
     if (!listContainer) return;
     listContainer.innerHTML = '';
 
-    // Jika peserta tidak melebihi 10, sembunyikan header tabel list
     if (remainingData.length === 0) {
         if (thHeader) thHeader.style.display = 'none';
         return;
@@ -252,6 +254,7 @@ function renderRemainingList(remainingData) {
 
     if (thHeader) {
         thHeader.style.display = 'grid';
+        thHeader.style.gridTemplateColumns = '60px 2.5fr 1fr 1fr 1fr 1.2fr';
         thHeader.innerHTML = `
             <div>Rank</div>
             <div>No. Absen & Nama</div>
@@ -263,30 +266,39 @@ function renderRemainingList(remainingData) {
     }
 
     remainingData.forEach((item, index) => {
-        const actualRank = index + 11; // Melanjutkan nomor urut dari rank 11
+        const actualRank = index + 11;
         const card = document.createElement('div');
         card.className = 'rank-card rank-other';
-        card.style.gridTemplateColumns = '50px 2.5fr 1fr 1fr 1fr 1.2fr';
+        card.style.cssText = `
+            display: grid;
+            grid-template-columns: 60px 2.5fr 1fr 1fr 1fr 1.2fr;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(30, 27, 75, 0.4);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        `;
 
         card.innerHTML = `
-            <div class="rank-badge">${actualRank}</div>
-            <div class="participant-info">
-                <div class="avatar-mini">${item.noAbsen}</div>
-                <div>
-                    <div class="p-name">${item.name}</div>
+            <div class="rank-badge" style="font-weight:bold; color:#cbd5e1;">${actualRank}</div>
+            <div class="participant-info" style="display:flex; align-items:center; gap:10px; overflow:hidden;">
+                <div class="avatar-mini" style="background:#3b82f6; color:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:bold; flex-shrink:0;">${item.noAbsen}</div>
+                <div style="overflow:hidden;">
+                    <div class="p-name" style="font-weight:bold; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.name}</div>
                     <small style="font-size:0.75rem; color:#94a3b8;">${item.timestamp}</small>
                 </div>
             </div>
-            <div class="metric-val">${item.nilaiPG}</div>
-            <div class="metric-val" style="color: #38bdf8;">${item.scoreEsai1}</div>
-            <div class="metric-val" style="color: #38bdf8;">${item.scoreEsai2}</div>
-            <div class="total-score-badge">${item.totalScore}</div>
+            <div class="metric-val" style="text-align:center; color:#f8fafc;">${item.nilaiPG}</div>
+            <div class="metric-val" style="text-align:center; color:#38bdf8;">${item.scoreEsai1}</div>
+            <div class="metric-val" style="text-align:center; color:#38bdf8;">${item.scoreEsai2}</div>
+            <div class="total-score-badge" style="text-align:center; font-weight:bold; color:#4ade80; background:rgba(74, 222, 128, 0.1); padding:4px 8px; border-radius:6px;">${item.totalScore}</div>
         `;
         listContainer.appendChild(card);
     });
 }
 
-// Fitur Sharing Web Link
+// Fitur Sharing URL
 function shareResults() {
     if (parsedData.length === 0) {
         alert('Silakan muat file CSV terlebih dahulu!');
